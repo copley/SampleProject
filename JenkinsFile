@@ -3,7 +3,7 @@ node('dockerhost') {
     def DOCKER_BUILD_NODE = 'maven:3.3.9-jdk-8'
 
     GIT_BRANCH = 'master'
-    GIT_URL = 'git@github.com:Irdeto-Jenkins2/SampleProject.git'
+    GIT_URL = 'https://github.com/Irdeto-Jenkins2/SampleProject.git'
 
     def version = "${MAJOR}.${MINOR}.${PATCH}.${env.BUILD_NUMBER}"
 
