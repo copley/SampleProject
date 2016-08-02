@@ -17,7 +17,7 @@ node('dockerhost') {
             checkout([$class                           : 'GitSCM',
                       branches                         : [[name: GIT_BRANCH]],
                       doGenerateSubmoduleConfigurations: false,
-                      extensions                       : [],
+                      extensions                       : [[$class: 'WipeWorkspace']],
                       submoduleCfg                     : [],
                       userRemoteConfigs                : [[url: GIT_URL]]])
 
@@ -54,7 +54,7 @@ node('dockerhost') {
         // Start load container
         NUMBER_COUNT = 100
         CONCURRENT_COUNT = 5
-        loadContainer = loadImage.run([args: "${sampleServiceContainer.id}:sampleService", command: "ab -k -n ${NUMBER_COUNT} -c ${CONCURRENT_COUNT} http://sampleService/helloworld"])
+        loadContainer = loadImage.run("${sampleServiceContainer.id}:sampleService", command: "ab -k -n ${NUMBER_COUNT} -c ${CONCURRENT_COUNT} http://sampleService:8080/helloworld")
 
         // inspect results
 
