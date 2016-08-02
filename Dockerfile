@@ -1,5 +1,7 @@
 FROM anapsix/alpine-java:jre8
 
+EXPOSE 8080
+
 ARG VERSION
 ENV VERSION ${VERSION:-0.0.0-alpha.0}
 
