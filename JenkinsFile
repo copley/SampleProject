@@ -7,7 +7,7 @@ node('dockerhost') {
 
     def version = "${MAJOR}.${MINOR}.${PATCH}.${env.BUILD_NUMBER}"
 
-    stage name: 'Prepare Docker Build Node', concurrency: MAX_CURRENCY
+    stage name: 'Prepare Docker Build Node'
     // Here you can change to a private registry if needed
     docker.withRegistry('https://index.docker.io/v1/') {
         // Depending on the build process -- you may also want to mount a dependency cache folder to host to shorten build time?
