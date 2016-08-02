@@ -35,7 +35,7 @@ node('dockerhost') {
     }
 
     stage name: 'Build Docker Container'
-    docker.build("sampleservice:${version}", "--build-arg VERSION=${version}")
+    docker.build("sampleservice:${version}", "--build-arg VERSION=${version} .")
 
     stage name: 'Deploy Docker Container'
     echo 'Not needed for demo :)'
