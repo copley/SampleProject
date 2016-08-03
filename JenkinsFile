@@ -12,7 +12,8 @@ node('dockerhost') {
     docker.withRegistry('https://index.docker.io/v1/') {
         // Depending on the build process -- you may also want to mount a dependency cache folder to host to shorten build time?
         def buildImage = docker.image(DOCKER_BUILD_NODE)
-        buildImage.inside() {
+        def PWD = pwd()
+        buildImage.inside("-v ${PWD}/../../.m2/repository:/cache/.m2/repository") {
             stage name: 'Code Checkout'
             checkout([$class                           : 'GitSCM',
                       branches                         : [[name: GIT_BRANCH]],
@@ -25,8 +26,8 @@ node('dockerhost') {
             // Not deploying anything so don't need withCredentials logic
             //withCredentials([[$class: 'UsernamePasswordBinding', credentialsId: MAVEN_DEPLOY_CREDENTIALS_ID, variable: 'mavenDeployCredentials']]) {
             // Run actual build command
-            sh("mvn versions:set -DnewVersion=${version}")
-            sh('mvn clean install')
+            sh("mvn -Duser.home=/cache/ versions:set -DnewVersion=${version}")
+            sh('mvn -Duser.home=/cache/ clean install')
             //}
         }
 
@@ -54,7 +55,8 @@ node('dockerhost') {
         // Start load container
         NUMBER_COUNT = 100
         CONCURRENT_COUNT = 5
-        loadContainer = loadImage.run("${sampleServiceContainer.id}:sampleService", command: "ab -k -n ${NUMBER_COUNT} -c ${CONCURRENT_COUNT} http://sampleService:8080/helloworld")
+        loadContainer = loadImage.run("--link ${sampleServiceContainer.id}:sampleService",
+                            "ab -k -n ${NUMBER_COUNT} -c ${CONCURRENT_COUNT} http://sampleService:8080/helloworld")
 
         // inspect results
 
