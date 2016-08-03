@@ -5,7 +5,7 @@ EXPOSE 8080
 ARG VERSION
 ENV VERSION ${VERSION:-0.0.0-alpha.0}
 
-ADD target/ar-t-${VERSION}-jar-with-dependencies.jar /tmp/sample-service.jar
+COPY target/ar-t-${VERSION}-jar-with-dependencies.jar /tmp/sample-service.jar
 
 ENTRYPOINT ["java", "-jar"]
 
