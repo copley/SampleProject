@@ -126,6 +126,8 @@ if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
         // There is no git publisher/tag plugin compatibility yet - so let's do it manually.
         // Let's use SSH Agent to load our Git Credentials for this commit
         sshagent(['GitHubSSHCredentialsId']) {
+            // Temp change the remote origin url to ssh credentials so we can use SSHAgent properly.
+            sh("git config remote.origin.url git@github.com:Irdeto-Jenkins2/SampleProject.git")
             // Create tag locally
             sh("git tag -a -f -m 'Release version of Sample Service - version ${version}' ${version}")
             // Push tag to origin
@@ -134,8 +136,8 @@ if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
 
         // Create Stage for docker image promotion
         stage name: 'Docker Image Latest Promotion'
-        // Since we are on a (possibly) different node make sure the image is local
-        sampleServiceImage.pull()
+        // Since we are on a (possibly) different node make sure the image is local - skip for now as we never published for demo
+        // sampleServiceImage.pull()
         // Create new tag for image - latest
         sampleServiceImage.tag('latest')
         // Push latest tag to docker registry (skip for demo reasons)
