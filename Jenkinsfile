@@ -27,14 +27,9 @@ node('dockerhost') {
             // Use the 'scm' keyword as we are doing Jenkinsfile from same SCM source
             checkout scm
 
-            // Some basic logic to handle versioning of build.
-            if (binding.variables.get('RELEASE_TYPE') == 'release') {
-                version = "${MAJOR}.${MINOR}.${PATCH}.${env.BUILD_NUMBER}"
-            } else {
-                // Make sure we don't have any illegal characters in branch name.
-                branch = ("branch-${env.BUILD_NUMBER}-${env.BRANCH_NAME}" =~ /\\|\/|:|"|<|>|\||\?|\*|\-/).replaceAll("_")
-                version = "0.0.0-${branch}.${env.BUILD_NUMBER}"
-            }
+            // Use global libraries for this to get version value
+            version = versionUtils.generate(binding.variables.get('MAJOR'), binding.variables.get('MINOR'), binding.variables.get('PATCH'),
+                    env.BUILD_NUMBER, env.BRANCH_NAME, binding.variables.get('RELEASE_TYPE'))
 
             // Let's create a build stage.
             stage name: 'Build'
