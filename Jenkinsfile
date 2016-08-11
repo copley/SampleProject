@@ -59,10 +59,12 @@ node('dockerhost') {
 
     // Build a versioned docker container for testing/deployment purposes
     stage name: 'Build Docker Container'
-    docker.build("sampleservice:${version}", "--build-arg VERSION=${version} .")
+    sampleServiceImage = docker.build("sampleservice:${version}", "--build-arg VERSION=${version} .")
 
     // Deploy this image somewhere
     stage name: 'Deploy Docker Container'
+    //sampleServiceImage.tag(version, true)
+    //sampleServiceImage.push(version, true)
     echo 'Not needed for demo :)'
 
     // Run integration tests
@@ -78,7 +80,8 @@ node('dockerhost && loadtest') {
     // Create variable for container handle so we can clean it up later
     def sampleServiceContainer = null
     // init a sample service image handle from newly created container
-    sampleServiceImage = docker.image("sampleservice:${version}")
+    //sampleServiceImage.pull() // already created during build step -- just reuse the object
+    sampleServiceImage = docker.image("sampleservice:${version}") // issue as 'library' gets prepended to image name, so need to re-declare
     // init a 3rd party container for load testing
     def loadImage = docker.image('jordi/ab')
 
@@ -98,6 +101,7 @@ node('dockerhost && loadtest') {
         stage name: 'Load Test Results'
         // inspect results (in logs)
         def loadResults = readFile('loadResults.txt')
+        stash includes: 'loadResults.txt', name: 'loadresults'
         println loadResults
     } catch (all) {
         // In case there were any errors catch and log.
@@ -113,41 +117,55 @@ node('dockerhost && loadtest') {
 // if build did not fail or currently unstable -- do git tags and promote docker container to latest tag
 // Depending on build logic, some plugins might change status to 'SUCCESS' otherwise if no result is set then things are
 // in a passing state.
-if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+if ((binding.variables.get('RELEASE_TYPE') == 'release') && (currentBuild.result == null || currentBuild.result == 'SUCCESS')) {
     // Add stage for manual verification of results. This is an example to include some manual step.
     stage name: 'Verify Load Results'
     // Keep input outside of a node to prevent using 2 executors
     input 'Are the load results good enough?'
 
-    // Specify node where we will finish the rest of the logic
-    node('dockerhost') {
-        // Create stage for Tag step
-        stage name: 'Git Tag'
-        // There is no git publisher/tag plugin compatibility yet - so let's do it manually.
-        // Let's use SSH Agent to load our Git Credentials for this commit
-        sshagent(['GitHubSSHCredentialsId']) {
-            // Temp change the remote origin url to ssh credentials so we can use SSHAgent properly.
-            sh("git config remote.origin.url git@github.com:Irdeto-Jenkins2/SampleProject.git")
-            // Create tag locally
-            sh("git tag -a -f -m 'Release version of Sample Service - version ${version}' ${version}")
-            // Push tag to origin
-            sh("git -c core.askpass=true push origin ${version}")
+    stage name: 'Git Tag & Docker Promotion'
+    parallel gitTag: {
+        node() {
+            // Create stage for Tag step
+            //stage name: 'Git Tag' // -- can't have inside of parallel block
+
+            // Make sure code is local
+            checkout scm
+
+            // There is no git publisher/tag plugin compatibility yet - so let's do it manually.
+            // Let's use SSH Agent to load our Git Credentials for this commit
+            sshagent(['GitHubSSHCredentialsId']) {
+                // Temp change the remote origin url to ssh credentials so we can use SSHAgent properly.
+                sh("git config remote.origin.url git@github.com:Irdeto-Jenkins2/SampleProject.git")
+                // set temp user for pushing
+                sh("git config user.email 'jenkins-user@irdeto.com'")
+                sh("git config user.name 'Jenkins Irdeto'")
+                // Create tag locally
+                sh("git tag -a -f -m 'Release version of Sample Service - version ${version}' ${version}")
+                // Push tag to origin
+                sh("git -c core.askpass=true push --force origin ${version}")
+            }
         }
-
-        // Create Stage for docker image promotion
-        stage name: 'Docker Image Latest Promotion'
-        // Since we are on a (possibly) different node make sure the image is local - skip for now as we never published for demo
-        // sampleServiceImage.pull()
-        // Create new tag for image - latest
-        sampleServiceImage.tag('latest')
-        // Push latest tag to docker registry (skip for demo reasons)
-        //sampleServiceImage.push('latest')
-
-        // Let's archive the binaries since everything was successful.
-        stage name: 'Archive Binaries'
-        // Unstash binaries to local node
-        unstash 'binaries'
-        // archive binary files.
-        archive('target/*.jar')
+    }, dockerTag: {
+        node('dockerhost') {
+            // Create Stage for docker image promotion
+            //stage name: 'Docker Image Latest Promotion' // -- can't have inside of parallel block
+            // Since we are on a (possibly) different node make sure the image is local - skip for now as we never published for demo
+            // sampleServiceImage.pull()
+            // Create new tag for image - latest
+            sampleServiceImage.tag('latest')
+            // Push latest tag to docker registry (skip for demo reasons)
+            //sampleServiceImage.push('latest')
+        }
+    }, archive: {
+        node() {
+            // Let's archive the binaries since everything was successful.
+            //stage name: 'Archive Binaries' // -- can't have inside a parallel block
+            // Unstash binaries to local node
+            unstash 'binaries'
+            unstash 'loadresults'
+            // archive binary files.
+            archive('target/*.jar,loadResults.txt')
+        }
     }
 }
